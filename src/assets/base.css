@@ -1,0 +1,8 @@
+body {
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  width: min(720px, 100%);
+}
