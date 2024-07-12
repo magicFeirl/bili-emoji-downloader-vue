@@ -41,9 +41,17 @@ async def root():
 async def api():
     return 'api'
 
-@app.get('/api/index1')
+@app.get('/api/python')
 async def index():
     return 'index'
+
+@app.get('/api/js')
+async def js():
+    return 'js'
+
+@app.get('/api/wtf')
+async def wtf():
+    return 'wft'
 
 @app.get('/api/index')
 async def search(name: str, pn: int = 1, ps: int = 20):
