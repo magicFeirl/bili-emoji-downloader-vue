@@ -46,7 +46,7 @@ async def index():
     return 'index'
 
 @app.get('/api/search')
-async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
+async def search(name: str, pn: int = 1, ps: int = 20):
     # with open('mock.json', 'r', encoding='utf-8') as f:
     #     return json.load(f)
     access_key, appkey = os.environ['access_key'], os.environ['appkey']
