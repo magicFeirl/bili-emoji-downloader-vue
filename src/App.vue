@@ -46,7 +46,7 @@
       <div class="grid grid-cols-4 gap-2 overflow-hidden py-1 transition-all"
         :class="pack.expanded ? 'h-auto' : 'h-[245px]'">
         <div v-for="e in pack.emote" :key="e.id">
-          <div class="emote-image relative flex justify-center py-1 overflow-hidden">
+          <div class="emote-image relative flex justify-center p-1 overflow-hidden">
             <img :data-id="e.id" v-lazy class="transition-all w-[120px] h-[120px] object-contain"
               :class="e.dlProgress === 100 ? 'rounded  ring-1 ring-green-500' : (e.dlProgress === '-1' ? 'rounded ring-1 ring-red-500' : '')"
               :data-src="e.url" :alt="e.text">
