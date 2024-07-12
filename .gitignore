@@ -1,4 +1,5 @@
-backend/config.py
+**/config.py
+**/__pycache__
 # Logs
 logs
 *.log
