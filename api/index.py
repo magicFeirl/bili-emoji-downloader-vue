@@ -1,15 +1,18 @@
 import json
+import os
+
+
 from contextlib import asynccontextmanager
 
 import aiohttp
 import uvicorn
+import dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import config
-
-
 session: aiohttp.ClientSession = None
+
+dotenv.load_dotenv()
 
 
 @asynccontextmanager
@@ -35,8 +38,8 @@ app.add_middleware(
 async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
     # with open('mock.json', 'r', encoding='utf-8') as f:
     #     return json.load(f)
-
-    url = f'https://api.bilibili.com/x/emote/package/search?access_key={config.access_key}&appkey={config.appkey}&business=reply&name={name}'
+    access_key, appkey = os.environ['access_key'], os.environ['appkey']
+    url = f'https://api.bilibili.com/x/emote/package/search?access_key={access_key}&appkey={appkey}&business=reply&name={name}'
 
     async with session.get(url, params={
         'pn': pn,
