@@ -34,6 +34,13 @@ app.add_middleware(
 )
 
 
+def get_session():
+    return aiohttp.ClientSession(headers={
+        'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    })
+
+
 @app.get('/api/index')
 async def search(name: str, pn: int = 1, ps: int = 20):
     # with open('mock.json', 'r', encoding='utf-8') as f:
@@ -41,7 +48,7 @@ async def search(name: str, pn: int = 1, ps: int = 20):
     access_key, appkey = os.environ['access_key'], os.environ['appkey']
     url = f'https://api.bilibili.com/x/emote/package/search?access_key={access_key}&appkey={appkey}&business=reply&name={name}'
     # vercel backend 似乎不能用全局变量保存 session
-    async with aiohttp.ClientSession() as session:
+    async with get_session() as session:
         async with session.get(url, params={
             'pn': pn,
             'ps': ps
