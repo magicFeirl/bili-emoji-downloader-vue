@@ -33,6 +33,17 @@ app.add_middleware(
     allow_origins=['*']
 )
 
+@app.get('/')
+async def root():
+    return 'root'
+
+@app.get('/api')
+async def api():
+    return 'api'
+
+@app.get('/api/index')
+async def index():
+    return 'index'
 
 @app.get('/api/search')
 async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
