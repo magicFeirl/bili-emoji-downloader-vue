@@ -1,7 +1,7 @@
 import http from '../http'
 
 const API = {
-  'searchEmojiByKeyword': '/'
+  'searchEmojiByKeyword': '/search'
 }
 
 export async function searchEmojiByKeyword(params) {
