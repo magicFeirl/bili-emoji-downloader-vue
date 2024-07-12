@@ -34,7 +34,7 @@ app.add_middleware(
 )
 
 
-@app.get('/search')
+@app.get('/')
 async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
     # with open('mock.json', 'r', encoding='utf-8') as f:
     #     return json.load(f)
@@ -49,4 +49,4 @@ async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
 
 
 if __name__ == '__main__':
-    uvicorn.run('main:app', reload=True)
+    uvicorn.run('index:app', reload=True)
