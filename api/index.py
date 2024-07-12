@@ -33,25 +33,6 @@ app.add_middleware(
     allow_origins=['*']
 )
 
-@app.get('/')
-async def root():
-    return 'root'
-
-@app.get('/api')
-async def api():
-    return 'api'
-
-@app.get('/api/python')
-async def index():
-    return 'index'
-
-@app.get('/api/js')
-async def js():
-    return 'js'
-
-@app.get('/api/wtf')
-async def wtf():
-    return 'wft'
 
 @app.get('/api/index')
 async def search(name: str, pn: int = 1, ps: int = 20):
@@ -67,5 +48,5 @@ async def search(name: str, pn: int = 1, ps: int = 20):
         return await resp.json()
 
 
-# if __name__ == '__main__':
-#     uvicorn.run('index:app', reload=True)
+if __name__ == '__main__':
+    uvicorn.run('index:app', reload=True)
