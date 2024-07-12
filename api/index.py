@@ -40,12 +40,13 @@ async def search(name: str, pn: int = 1, ps: int = 20):
     #     return json.load(f)
     access_key, appkey = os.environ['access_key'], os.environ['appkey']
     url = f'https://api.bilibili.com/x/emote/package/search?access_key={access_key}&appkey={appkey}&business=reply&name={name}'
-
-    async with session.get(url, params={
-        'pn': pn,
-        'ps': ps
-    }) as resp:
-        return await resp.json()
+    # vercel backend 似乎不能用全局变量保存 session
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params={
+            'pn': pn,
+            'ps': ps
+        }) as resp:
+            return await resp.json()
 
 
 if __name__ == '__main__':
