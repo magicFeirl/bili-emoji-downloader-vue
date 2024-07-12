@@ -41,11 +41,11 @@ async def root():
 async def api():
     return 'api'
 
-@app.get('/api/index')
+@app.get('/api/index1')
 async def index():
     return 'index'
 
-@app.get('/api/search')
+@app.get('/api/index')
 async def search(name: str, pn: int = 1, ps: int = 20):
     # with open('mock.json', 'r', encoding='utf-8') as f:
     #     return json.load(f)
