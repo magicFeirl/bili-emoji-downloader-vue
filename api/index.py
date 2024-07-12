@@ -48,5 +48,5 @@ async def search_emoji_pack(name: str, pn: int = 1, ps: int = 20):
         return await resp.json()
 
 
-if __name__ == '__main__':
-    uvicorn.run('index:app', reload=True)
+# if __name__ == '__main__':
+#     uvicorn.run('index:app', reload=True)
