@@ -21,7 +21,7 @@
 
     <div v-if="!searchResult.list.length" class="flex flex-col items-center justify-center mt-12">
       <img class="w-24 h-24 opacity-60" src="./assets/images/akr-empty.webp" alt="\阿卡林~/">
-      <p class="text-slate-400">什么都没找到</p>
+      <p class="text-slate-400 mt-2">什么都没找到</p>
     </div>
 
     <!-- results -->
