@@ -48,7 +48,8 @@
         <div v-for="e in pack.emote" :key="e.id">
           <div class="emote-image relative flex justify-center py-1 overflow-hidden">
             <img :data-id="e.id" v-lazy class="transition-all w-[120px] h-[120px] object-contain"
-              :class="e.dlProgress === 100 ? 'rounded  ring-1 ring-green-500' : ''" :data-src="e.url" :alt="e.text">
+              :class="e.dlProgress === 100 ? 'rounded  ring-1 ring-green-500' : (e.dlProgress === '-1' ? 'rounded ring-1 ring-red-500' : '')"
+              :data-src="e.url" :alt="e.text">
             <!-- download single -->
             <div @click="downloadSingle(e, true)"
               class="emote-image-bottom transition-all absolute -bottom-[1.25rem] bg-gray-600/50 w-full flex justify-center h-5">
@@ -165,8 +166,13 @@ const download = async (pack) => {
 
   const zip = new JSzip()
   for (const e of pack.emote) {
-    const { filename, blob } = await downloadSingle(e)
-    zip.file(filename, blob)
+    try {
+      const { filename, blob } = await downloadSingle(e)
+      zip.file(filename, blob)
+    } catch (e) {
+      e.dlProgress = -1
+      console.error(e)
+    }
   }
 
   zip.file('info.txt', generatePackInfoText())
@@ -179,7 +185,7 @@ const download = async (pack) => {
 }
 
 const downloadSingle = async (e, save = false) => {
-  const resp = await fetch(e.url)
+  const resp = await fetch(e.url.replace('http:', location.protocol))
   const filename = e.text + e.url.slice(e.url.lastIndexOf('.'))
   const blob = await resp.blob()
 
