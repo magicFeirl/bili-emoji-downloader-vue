@@ -44,7 +44,7 @@ def get_session(**kwargs):
     if 'cookie' not in kwargs and sessdata and bili_jct:
         cookie = f'SESSDATA={sessdata}; bili_jct={bili_jct}'
     else:
-        cookie = kwargs.get('cookie')
+        cookie = kwargs.get('cookie', '')
 
     return aiohttp.ClientSession(headers={
         'User-Agent':
