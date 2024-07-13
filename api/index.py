@@ -38,12 +38,13 @@ app.add_middleware(
 
 
 def get_session(**kwargs):
-    sessdata, bili_jct = os.environ['sessdata'], os.environ['bili_jct']
+    sessdata, bili_jct = os.environ.get(
+        'sessdata', ''), os.environ.get('bili_jct', '')
 
-    if 'cookie' not in kwargs:
+    if 'cookie' not in kwargs and sessdata and bili_jct:
         cookie = f'SESSDATA={sessdata}; bili_jct={bili_jct}'
     else:
-        cookie = kwargs['cookie']
+        cookie = kwargs.get('cookie')
 
     return aiohttp.ClientSession(headers={
         'User-Agent':
@@ -111,7 +112,7 @@ async def get_detail_by_id(id: int | str):
 async def search(query: CommonQuery):
     access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')
     sessdata, bili_jct = os.environ.get('sessdata'), os.environ.get('bili_jct')
-   
+
     if access_key and appkey:
         return await search_by_app(query)
     elif sessdata and bili_jct:
