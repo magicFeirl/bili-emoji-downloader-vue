@@ -6,21 +6,13 @@ const API = {
 }
 
 export async function searchEmojiByKeyword(params) {
-  try {
-    return await http.get(API.searchEmojiByKeyword, {
-      params
-    })
-  } catch (e) {
-    throw `网络错误: ${e}`
-  }
+  return await http.get(API.searchEmojiByKeyword, {
+    params
+  })
 }
 
 export async function getEmojiDetailById(id) {
-  try {
-    return await http.get(API.emoteDetail, {
-      params: { id }
-    })
-  } catch (e) {
-    throw `网络错误: ${e}`
-  }
+  return await http.get(API.emoteDetail, {
+    params: { id }
+  })
 }
