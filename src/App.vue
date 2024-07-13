@@ -192,7 +192,7 @@ const download = async (pack) => {
   const zip = new JSzip()
   for (const e of pack.emote) {
     try {
-      const { filename, blob } = await downloadSingle(e, false, true)
+      const { filename, blob } = await downloadSingle(e, false, pack.tojpg)
       zip.file(filename, blob)
     } catch (e) {
       e.dlProgress = -1
