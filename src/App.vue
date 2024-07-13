@@ -180,8 +180,7 @@ const search = wrap(async (reset = true) => {
   }
 
   // 考虑到配置难度后端也提供了用 cookie 请求的接口，两种接口格式不同但是对用户来说是无感的，所以前端需要统一一下，将接口格式都转为 app 端的格式
-  const apiType = params.value.apiType = resp.data.mobiApp != undefined ? 'app' : 'pc'
-
+  const apiType = params.value.apiType = resp.data.MobiApp != undefined ? 'app' : 'pc'
   searchResult.value.list.push(...formatApiResult(apiType, resp))
   // pc 端分页转为移动端分页格式
   if (apiType === 'pc') {
