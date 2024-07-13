@@ -30,7 +30,10 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*']
+    allow_origins=[
+        'http://localhost:5173',
+        'https://bili-emoji-downloader-vue.vercel.app'
+    ]
 )
 
 

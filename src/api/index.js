@@ -5,7 +5,11 @@ const API = {
 }
 
 export async function searchEmojiByKeyword(params) {
-  return await http.get(API.searchEmojiByKeyword, {
-    params
-  })
+  try {
+    return await http.get(API.searchEmojiByKeyword, {
+      params
+    })
+  } catch (e) {
+    throw `网络错误: ${e}`
+  }
 }

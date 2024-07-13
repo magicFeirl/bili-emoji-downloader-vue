@@ -3,8 +3,15 @@ export function wrap(p, before, after) {
   return (...args) => {
     before()
 
-    return p(...args).finally(() => {
-      after()
+    let fin = true
+    return p(...args).then(() => {
+      fin = false
+      after('then')
+    }).catch((e) => {
+      fin = false
+      after('error', e)
+    }).finally(() => {
+      fin && after('finally')
     })
   }
 }

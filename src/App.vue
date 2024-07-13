@@ -1,16 +1,16 @@
 <template>
   <div class="flex flex-col px-[10px] py-4">
     <!-- tab -->
-    <div class="tab-list flex gap-2 mb-2 text-sm transition-colors">
+    <div class="tab-list flex gap-2 mb-3 text-sm transition-colors">
       <button class="tab-list-item active">表情包</button>
-      <button class="tab-list-item">直播间表情包</button>
-      <button class="tab-list-item">充电表情</button>
+      <!-- <button class="tab-list-item">直播间表情包</button> -->
+      <!-- <button class="tab-list-item">充电表情</button> -->
     </div>
     <!-- search -->
-    <div class="search relative shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-      <input :disabled="params.loading" @keyup.enter="search()" class="px-4 py-2 w-full text-xl round-md" type="text"
-        v-model="params.keyword" placeholder="输入关键字搜索...">
-      <button :disabled="params.loading" class="absolute right-2 top-[8px]" @click="search()">
+    <div class="search relative card-shadow mb-2">
+      <input :disabled="loadingState == 'loading'" @keyup.enter="search()" class="px-4 py-2 w-full text-xl round-md"
+        type="text" v-model="params.keyword" placeholder="输入关键字搜索...">
+      <button :disabled="loadingState == 'loading'" class="absolute right-2 top-[8px]" @click="search()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="size-6">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -19,13 +19,21 @@
       </button>
     </div>
 
-    <div v-if="!searchResult.list.length" class="flex flex-col items-center justify-center mt-12">
+    <div v-if="loadingState == 'loading'" class="text-slate-400 text-center mt-16">
+      搜索中...
+    </div>
+    <div v-else-if="loadingState == 'error'" class="text-lg text-red-600/60 text-center mt-16">
+      加载失败: {{ searchResult.errorMsg || '未知错误' }}
+    </div>
+
+    <div v-if="!searchResult.list.length && loadingState == 'null'"
+      class="flex flex-col items-center justify-center mt-12">
       <img class="w-24 h-24 opacity-60" src="./assets/images/akr-empty.webp" alt="\阿卡林~/">
       <p class="text-slate-400 mt-2">什么都没找到</p>
     </div>
 
     <!-- results -->
-    <section class="emoji-pack my-2 p-4 rounded-md border ring-1 ring-inset ring-slate-50 relative"
+    <section class="emoji-pack card-shadow my-2 p-4 rounded-md border ring-1 ring-inset ring-slate-50 relative"
       :class="pack.expanded ? 'pb-2' : 'pb-[36px]'" v-for="pack in searchResult.list" :key="pack.id">
       <!-- header -->
       <div class="flex mb-4 pb-1">
@@ -44,10 +52,10 @@
       </div>
       <!-- content -->
       <div class="grid grid-cols-4 gap-2 overflow-hidden py-1 transition-all"
-        :class="pack.expanded ? 'h-auto' : 'h-[245px]'">
+        :class="pack.expanded ? 'h-auto' : 'sm:h-[265px] h-[255px]'">
         <div v-for="e in pack.emote" :key="e.id">
           <div class="emote-image relative flex justify-center p-1 overflow-hidden">
-            <img :data-id="e.id" v-lazy class="transition-all w-[120px] h-[120px] object-contain"
+            <img :data-id="e.id" v-lazy class="transition-all w-[120px] h-auto object-contain"
               :class="e.dlProgress === 100 ? 'rounded  ring-1 ring-green-500' : (e.dlProgress === '-1' ? 'rounded ring-1 ring-red-500' : '')"
               :data-src="e.url" :alt="e.text">
             <!-- download single -->
@@ -88,7 +96,7 @@ onMounted(() => {
   document.addEventListener('scroll', (e) => {
     const { scrollTop, scrollHeight } = document.documentElement
     const height = window.innerHeight
-    if (scrollTop + height > scrollHeight - 100 && searchResult.value.page.total && !params.value.loading) {
+    if (scrollTop + height > scrollHeight - 100 && searchResult.value.page.total && loadingState.value == 'null') {
       params.value.pn += 1
       search(false)
     }
@@ -100,12 +108,14 @@ const params = ref({
   pn: 1,
   ps: 5,
   type: '',
-  loading: false
 })
+
+const loadingState = ref('null') // null | loading | error
 
 const searchResult = ref({
   list: [],
-  page: {}
+  page: {},
+  errorMsg: ''
 })
 
 /**
@@ -122,6 +132,7 @@ const search = wrap(async (reset = true) => {
     searchResult.value.list = []
   }
 
+
   const resp = await API.searchEmojiByKeyword({
     business: 'reply',
     pn: params.value.pn,
@@ -130,8 +141,7 @@ const search = wrap(async (reset = true) => {
   })
 
   if (resp.code !== 0) {
-    alert('请求失败')
-    return
+    throw `code:${resp.code} message:${resp.message}`
   }
 
   const list = (resp.data.list || [])
@@ -145,19 +155,29 @@ const search = wrap(async (reset = true) => {
         }
       }),
       downloading: false,
-      expanded: false,
+      // 表情数量 <=12 的自动展开
+      expanded: item.emote.length <= 12,
     }
   }))
   searchResult.value.page = resp.data.page
   if (resp.data.page.total < params.value.ps) {
     searchResult.value.page.total = 0
   }
-}, () => params.value.loading = true, () => params.value.loading = false)
+}, () => loadingState.value = 'loading', (state, error) => {
+  loadingState.value = 'null'
+  console.log(state, error);
+  if (state == 'error') {
+    loadingState.value = 'error'
+    searchResult.value.errorMsg = error
+  }
+})
 
 const download = async (pack) => {
   const generatePackInfoText = () => {
+    const title = `由 ${location.href} 导出，项目地址: https://github.com/magicFeirl/bili-emoji-downloader-vue\n# 表情包版权归原作者所有`
+    const name = pack.text
     const urls = pack.emote.map(e => `# ${e.text}\n${e.url}`).join('\n')
-    return `# ${pack.text} ${pack.meta.item_url}\n${urls}`
+    return `# ${title}\n# 表情包名称：${name}\n# 购买链接:${pack.meta.item_url}\n\n${urls}`
   }
 
   expandCard(pack)
@@ -211,10 +231,15 @@ const expandCard = (pack) => {
 
 .tab-list-item.active {
   @apply text-slate-900 bg-slate-100;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
 }
 
 .emote-image:hover>.emote-image-bottom {
   cursor: pointer;
   bottom: 0;
+}
+
+.card-shadow {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
 }
 </style>
