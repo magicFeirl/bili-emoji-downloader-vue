@@ -4,7 +4,7 @@
     <div class="tab-list flex gap-2 mb-3 text-sm transition-colors">
       <button class="tab-list-item active">表情包</button>
       <!-- <button class="tab-list-item">直播间表情包</button> -->
-      <!-- <button class="tab-list-item">充电表情</button> -->
+      <!-- <button @click="showChargeEmoteHelper" class="tab-list-item">充电表情</button> -->
     </div>
     <!-- search -->
     <div class="search relative card-shadow mb-2">
@@ -100,9 +100,20 @@ onMounted(() => {
   document.addEventListener('scroll', (e) => {
     const { scrollTop, scrollHeight } = document.documentElement
     const height = window.innerHeight
-    if (scrollTop + height > scrollHeight - 100 && searchResult.value.page.total && loadingState.value == 'null') {
+    const total = searchResult.value.page.total
+
+    if (scrollTop + height > scrollHeight - 100 && total && loadingState.value == 'null') {
       params.value.pn += 1
       search(false)
+    }
+  })
+
+  window.addEventListener('resize', (e) => {
+    // PC 接口只有 10 条数据，宽度过小时自动展开卡片
+    if (params.value.apiType === 'pc' && window.innerWidth < 540) {
+      for (const li of searchResult.value.list) {
+        expandCard(li)
+      }
     }
   })
 })
@@ -111,7 +122,7 @@ const params = ref({
   keyword: '',
   pn: 1,
   ps: 5,
-  type: '',
+  apiType: 'app' // app | pc
 })
 
 const loadingState = ref('null') // null | loading | error
@@ -121,6 +132,28 @@ const searchResult = ref({
   page: {},
   errorMsg: ''
 })
+
+const formatApiResult = (apiType, resp) => {
+  const list = apiType === 'app' ? (resp.data.list || []) : (resp.data.packages || [])
+  const emoteK = apiType === 'app' ? 'emote' : 'emotes'
+
+  return list.map((item) => {
+    const maxLen = params.value.apiType === 'app' ? 12 : 8
+
+    return {
+      ...item,
+      emote: item[emoteK].map(e => {
+        return {
+          ...e,
+          dlProgress: 0
+        }
+      }),
+      downloading: false,
+      tojpg: true,
+      expanded: item[emoteK].length <= maxLen || params.value.apiType === 'pc' && window.innerWidth < 540,
+    }
+  })
+}
 
 /**
  * @param reset 是否从第一页开始搜索
@@ -136,9 +169,7 @@ const search = wrap(async (reset = true) => {
     searchResult.value.list = []
   }
 
-
   const resp = await API.searchEmojiByKeyword({
-    business: 'reply',
     pn: params.value.pn,
     ps: params.value.ps,
     name: keyword
@@ -148,23 +179,20 @@ const search = wrap(async (reset = true) => {
     throw `code:${resp.code} message:${resp.message}`
   }
 
-  const list = (resp.data.list || [])
-  searchResult.value.list.push(...list.map((item) => {
-    return {
-      ...item,
-      emote: item.emote.map((e) => {
-        return {
-          ...e,
-          dlProgress: 0,
-        }
-      }),
-      downloading: false,
-      tojpg: true,
-      // 表情数量 <=12 的自动展开
-      expanded: item.emote.length <= 12,
+  // 考虑到配置难度后端也提供了用 cookie 请求的接口，两种接口格式不同但是对用户来说是无感的，所以前端需要统一一下，将接口格式都转为 app 端的格式
+  const apiType = params.value.apiType = resp.data.mobiApp != undefined ? 'app' : 'pc'
+
+  searchResult.value.list.push(...formatApiResult(apiType, resp))
+  // pc 端分页转为移动端分页格式
+  if (apiType === 'pc') {
+    const { total, ps, pn } = resp.data
+    resp.data.page = {
+      total, ps, pn
     }
-  }))
+  }
+
   searchResult.value.page = resp.data.page
+
   if (resp.data.page.total < params.value.ps) {
     searchResult.value.page.total = 0
   }
@@ -177,6 +205,21 @@ const search = wrap(async (reset = true) => {
   }
 })
 
+// const url = new URL(location.href)
+// const kw = url.searchParams.get('kw')
+// if (kw) {
+//   params.keyword = kw
+//   search()
+// }
+
+const loadPackForPC = async (pack) => {
+  if (params.value.apiType === 'pc' && !pack.load) {
+    const data = await API.getEmojiDetailById(pack.id)
+    pack.emote = data.data.package.emotes
+    pack.load = true
+  }
+}
+
 const download = async (pack) => {
   const generatePackInfoText = () => {
     const title = `由 ${location.href} 导出，项目地址: https://github.com/magicFeirl/bili-emoji-downloader-vue\n# 表情包版权归原作者所有`
@@ -184,6 +227,8 @@ const download = async (pack) => {
     const urls = pack.emote.map(e => `# ${e.text}\n${e.url}`).join('\n')
     return `# ${title}\n# 表情包名称：${name}\n# 购买链接:${pack.meta.item_url}\n\n${urls}`
   }
+
+  await loadPackForPC(pack)
 
   expandCard(pack)
 
