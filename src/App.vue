@@ -10,7 +10,8 @@
     <div class="search relative card-shadow mb-2">
       <input :disabled="loadingState == 'loading'" @keyup.enter="search()" class="px-4 py-2 w-full text-xl round-md"
         type="text" v-model="params.keyword" placeholder="输入关键字搜索...">
-      <button :disabled="loadingState == 'loading'" class="absolute right-2 top-[8px]" @click="search()">
+      <button :disabled="loadingState == 'loading' || !params.keyword"
+        class="absolute right-2 top-[8px] disabled:text-gray-300" @click="search()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
           class="size-6">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -36,19 +37,22 @@
     <section class="emoji-pack card-shadow my-2 p-4 rounded-md border ring-1 ring-inset ring-slate-50 relative"
       :class="pack.expanded ? 'pb-2' : 'pb-[36px]'" v-for="pack in searchResult.list" :key="pack.id">
       <!-- header -->
-      <div class="flex mb-4 pb-1">
+      <div class="flex mb-4 pb-1 items-center">
         <p class="text-lg text-gray-800 hover:text-blue-400 transition-colors"><a :href="pack.meta.item_url"
             target="_blank">
             {{ pack.text
             }}({{ pack.emote.length }})</a></p>
         <div class="flex-1"></div>
-        <button :disabled="pack.downloading" class="download disabled:text-gray-300" @click="download(pack)">
+        <label :class="pack.tojpg ? 'text-blue-400' : ''" for="tojpg">转为JPG</label>
+        <input v-model="pack.tojpg" type="checkbox" id="tojpg" class="mr-2 ml-1">
+        <button :disabled="pack.downloading" class="download -mt-2 disabled:text-gray-300" @click="download(pack)">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
             stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
         </button>
+
       </div>
       <!-- content -->
       <div class="grid grid-cols-4 gap-2 overflow-hidden py-1 transition-all"
@@ -59,7 +63,7 @@
               :class="e.dlProgress === 100 ? 'rounded  ring-1 ring-green-500' : (e.dlProgress === '-1' ? 'rounded ring-1 ring-red-500' : '')"
               :data-src="e.url" :alt="e.text">
             <!-- download single -->
-            <div @click="downloadSingle(e, true)"
+            <div @click="downloadSingle(e, true, pack.tojpg)"
               class="emote-image-bottom transition-all absolute -bottom-[1.25rem] bg-gray-600/50 w-full flex justify-center h-5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                 stroke="currentColor" class="size-4 text-white">
@@ -155,6 +159,7 @@ const search = wrap(async (reset = true) => {
         }
       }),
       downloading: false,
+      tojpg: true,
       // 表情数量 <=12 的自动展开
       expanded: item.emote.length <= 12,
     }
@@ -187,7 +192,7 @@ const download = async (pack) => {
   const zip = new JSzip()
   for (const e of pack.emote) {
     try {
-      const { filename, blob } = await downloadSingle(e)
+      const { filename, blob } = await downloadSingle(e, false, true)
       zip.file(filename, blob)
     } catch (e) {
       e.dlProgress = -1
@@ -204,18 +209,42 @@ const download = async (pack) => {
   pack.downloading = false;
 }
 
-const downloadSingle = async (e, save = false) => {
+const downloadSingle = async (e, save = false, tojpg = false) => {
   const resp = await fetch(e.url.replace('http:', location.protocol))
-  const filename = e.text + e.url.slice(e.url.lastIndexOf('.'))
+  const filename = e.text + (tojpg ? '.jpg' : e.url.slice(e.url.lastIndexOf('.')))
   const blob = await resp.blob()
 
-  e.dlProgress = 100;
+  const img = new Image()
+  img.src = URL.createObjectURL(blob)
 
-  if (save) {
-    saveAs(blob, filename)
-  } else {
-    return { blob, filename }
-  }
+  return await new Promise((resolve) => {
+    img.onload = () => {
+      if (tojpg) {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        canvas.toBlob((blob) => {
+          resolve(blob)
+          console.log(blob);
+          URL.revokeObjectURL(img.src)
+        }, 'image/jpeg', 1)
+      } else {
+        resolve(blob)
+      }
+    }
+
+    e.dlProgress = 100
+  }).then((blob) => {
+    if (save) {
+      saveAs(blob, filename)
+    } else {
+      return { blob, filename }
+    }
+  })
 }
 
 const expandCard = (pack) => {
