@@ -109,9 +109,12 @@ async def get_detail_by_id(id: int | str):
 
 @app.get('/api/index')
 async def search(query: CommonQuery):
-    if os.environ['access_key'] and os.environ['appkey']:
+    access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')
+    sessdata, bili_jct = os.environ.get('sessdata'), os.environ.get('bili_jct')
+   
+    if access_key and appkey:
         return await search_by_app(query)
-    elif os.environ['sessdata'] and os.environ['bili_jct']:
+    elif sessdata and bili_jct:
         return await search_by_pc(query)
     else:
         return {'code': -1, 'message': '未配置登陆凭据，请在环境变量中配置 access_key 和 appkey(app登陆) 或者 sessdata 和 bili_jct(cookie)'}
