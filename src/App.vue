@@ -2,14 +2,23 @@
   <div class="flex flex-col px-[10px] py-4">
     <!-- tab -->
     <div class="tab-list flex gap-2 mb-3 text-sm transition-colors">
-      <button class="tab-list-item active">表情包</button>
-      <!-- <button class="tab-list-item">直播间表情包</button> -->
+      <button v-for="tab in tabBar.list" :key="tab.id" @click="switchTab(tab)" class="tab-list-item"
+        :class="{ active: tab.id === tabBar.currentTabId }">{{ tab.name }}</button>
       <!-- <button @click="showChargeEmoteHelper" class="tab-list-item">充电表情</button> -->
+      <div class="flex-1"></div>
+      <a title="部署同款网站" target="_blank" href="https://github.com/magicFeirl/bili-emoji-downloader-vue">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="size-6 fill-slate-600">
+          <path fill-rule="evenodd" clip-rule="evenodd"
+            d="M12 2C6.477 2 2 6.463 2 11.97c0 4.404 2.865 8.14 6.839 9.458.5.092.682-.216.682-.48 0-.236-.008-.864-.013-1.695-2.782.602-3.369-1.337-3.369-1.337-.454-1.151-1.11-1.458-1.11-1.458-.908-.618.069-.606.069-.606 1.003.07 1.531 1.027 1.531 1.027.892 1.524 2.341 1.084 2.91.828.092-.643.35-1.083.636-1.332-2.22-.251-4.555-1.107-4.555-4.927 0-1.088.39-1.979 1.029-2.675-.103-.252-.446-1.266.098-2.638 0 0 .84-.268 2.75 1.022A9.607 9.607 0 0 1 12 6.82c.85.004 1.705.114 2.504.336 1.909-1.29 2.747-1.022 2.747-1.022.546 1.372.202 2.386.1 2.638.64.696 1.028 1.587 1.028 2.675 0 3.83-2.339 4.673-4.566 4.92.359.307.678.915.678 1.846 0 1.332-.012 2.407-.012 2.734 0 .267.18.577.688.48 3.97-1.32 6.833-5.054 6.833-9.458C22 6.463 17.522 2 12 2Z">
+          </path>
+        </svg>
+      </a>
     </div>
     <!-- search -->
     <div class="search relative card-shadow mb-2">
-      <input :disabled="loadingState == 'loading'" @keyup.enter="search()" class="px-4 py-2 w-full text-xl round-md"
-        type="text" v-model="params.keyword" placeholder="输入关键字搜索...">
+      <input :disabled="loadingState == 'loading'" @keyup.enter="search()"
+        class="text-slate-600 px-4 py-2 w-full round-md" type="text" v-model="params.keyword"
+        :placeholder="activeTab.placeholder">
       <button :disabled="loadingState == 'loading' || !params.keyword"
         class="absolute right-2 top-[8px] disabled:text-gray-300" @click="search()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
@@ -87,7 +96,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { vLazy } from './directives/lazy';
 import { wrap } from './utils';
 import * as API from './api'
@@ -118,12 +127,23 @@ onMounted(() => {
   })
 })
 
+const tabBar = ref({
+  currentTabId: 0,
+  list: [
+    { id: 0, name: '表情包', placeholder: '输入关键搜索' },
+    { id: 1, name: '直播间表情包', placeholder: '输入直播间 ID 或 URL' }
+  ]
+})
+
+const activeTab = computed(() => tabBar.value.list.find(b => b.id === tabBar.value.currentTabId))
+
 const params = ref({
   keyword: '',
   pn: 1,
   ps: 5,
-  apiType: 'app' // app | pc
+  apiType: 'app', // app | pc
 })
+
 
 const loadingState = ref('null') // null | loading | error
 
@@ -132,6 +152,10 @@ const searchResult = ref({
   page: {},
   errorMsg: ''
 })
+
+const switchTab = (tab) => {
+  tabBar.value.currentTabId = tab.id
+}
 
 const formatApiResult = (apiType, resp) => {
   const list = apiType === 'app' ? (resp.data.list || []) : (resp.data.packages || [])
@@ -155,6 +179,17 @@ const formatApiResult = (apiType, resp) => {
   })
 }
 
+const jumpToLiveEmoteAPI = (keyword) => {
+  const room_id = keyword.match(/live\.bilibili\.com\/(\d+).+?/) || keyword.match(/^(\d+)$/)
+  if (!room_id || !room_id[1]) {
+    alert('无法查找房间 ID: ' + keyword)
+    return;
+  }
+
+  const url = 'https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id=' + room_id[1]
+  open(url, '_blank')
+}
+
 /**
  * @param reset 是否从第一页开始搜索
  */
@@ -163,6 +198,12 @@ const search = wrap(async (reset = true) => {
   if (!keyword) {
     return
   }
+
+  // 直播间表情包跳转到表情包接口
+  if (activeTab.value.id === 1) {
+    return jumpToLiveEmoteAPI(keyword)
+  }
+
 
   if (reset) {
     params.value.pn = 1
