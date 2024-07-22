@@ -70,7 +70,7 @@ async def search_by_app(dep: CommonQuery):
             'pn': dep['pn'],
             'ps': dep['ps']
         }) as resp:
-            return await resp.json()
+            return resp.json()
 
 
 async def search_by_pc(dep: CommonQuery):
@@ -85,7 +85,7 @@ async def search_by_pc(dep: CommonQuery):
             'search': dep['name'],
         })
 
-        return await resp.json()
+        return resp.json()
 
 
 async def search_by_pc_id(id: int | str):
@@ -113,10 +113,10 @@ async def search(query: CommonQuery):
     access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')
     sessdata, bili_jct = os.environ.get('sessdata'), os.environ.get('bili_jct')
 
-    if access_key and appkey:
-        return await search_by_app(query)
-    elif sessdata and bili_jct:
-        return await search_by_pc(query)
+    if sessdata and bili_jct:
+        return {**await search_by_pc(query), 'method': 'pc'}
+    elif access_key and appkey:
+        return {**await search_by_app(query), 'method': 'app'}
     else:
         return {'code': -1, 'message': '未配置登陆凭据，请在环境变量中配置 access_key 和 appkey(app登陆) 或者 sessdata 和 bili_jct(cookie)'}
 
