@@ -1,6 +1,5 @@
 import os
 
-from index import get_session, app
 import aiohttp
 import dotenv
 from fastapi import FastAPI
@@ -9,6 +8,32 @@ from fastapi.middleware.cors import CORSMiddleware
 session: aiohttp.ClientSession = None
 
 dotenv.load_dotenv()
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        'http://localhost:5173',
+        'https://bili-emoji-downloader-vue.vercel.app'
+    ]
+)
+
+
+def get_session(**kwargs):
+    sessdata, bili_jct = os.environ.get(
+        'sessdata', ''), os.environ.get('bili_jct', '')
+
+    if 'cookie' not in kwargs and sessdata and bili_jct:
+        cookie = f'SESSDATA={sessdata}; bili_jct={bili_jct}'
+    else:
+        cookie = kwargs.get('cookie', '')
+
+    return aiohttp.ClientSession(headers={
+        'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'cookie': cookie
+    })
 
 
 async def search_by_pc_id(id: int | str):

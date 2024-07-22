@@ -100,14 +100,6 @@ async def search_by_pc_id(id: int | str):
         return await resp.json()
 
 
-@app.get('/api/detail')
-async def get_detail_by_id(id: int | str):
-    if not os.environ['bili_jct'] or not os.environ['sessdata']:
-        return {'code': -1, 'message': '该接口仅在配置 cookie 登录后可用'}
-
-    return await search_by_pc_id(id)
-
-
 @app.get('/api/index')
 async def search(query: CommonQuery):
     access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')

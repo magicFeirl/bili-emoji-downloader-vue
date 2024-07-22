@@ -1,6 +1,6 @@
 **/config.py
 **/__pycache__
-*.env
+.env
 # Logs
 logs
 *.log
