@@ -253,8 +253,8 @@ const search = wrap(async (reset = true) => {
 // }
 
 const loadPackForPC = async (pack) => {
-  if (params.value.apiType === 'pc' && !pack.load) {
-    pack.load = true
+  if (params.value.apiType === 'pc' && !pack.downloading) {
+    pack.downloading = true
     const data = await API.getEmojiDetailById(pack.id)
     pack.emote = data.data.package.emotes
   }
