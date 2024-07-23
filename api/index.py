@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Annotated
 
@@ -26,7 +25,7 @@ async def lifespan(app: FastAPI):
     await session.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, root_path='/api')
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,7 +99,15 @@ async def search_by_pc_id(id: int | str):
         return await resp.json()
 
 
-@app.get('/api/index')
+@app.get('/detail')
+async def get_detail_by_id(id: int | str):
+    if not os.environ['bili_jct'] or not os.environ['sessdata']:
+        return {'code': -1, 'message': '该接口仅在配置 cookie 登录后可用'}
+
+    return await search_by_pc_id(id)
+
+
+@app.get('/index')
 async def search(query: CommonQuery):
     access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')
     sessdata, bili_jct = os.environ.get('sessdata'), os.environ.get('bili_jct')
