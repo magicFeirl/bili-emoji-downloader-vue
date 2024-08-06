@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 import uvicorn
 import dotenv
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 session: aiohttp.ClientSession = None
@@ -40,10 +40,14 @@ def get_session(**kwargs):
     sessdata, bili_jct = os.environ.get(
         'sessdata', ''), os.environ.get('bili_jct', '')
 
-    if 'cookie' not in kwargs and sessdata and bili_jct:
+    # 没传或者传空 cookie，用环境变量的 cookie
+    if (not kwargs.get('cookie')) and sessdata and bili_jct:
         cookie = f'SESSDATA={sessdata}; bili_jct={bili_jct}'
     else:
         cookie = kwargs.get('cookie', '')
+
+    if isinstance(cookie, dict):
+        cookie = '; '.join([f'{k}={v}' for k, v in cookie.items()])
 
     return aiohttp.ClientSession(headers={
         'User-Agent':
@@ -52,8 +56,8 @@ def get_session(**kwargs):
     })
 
 
-async def commonQuery(name: str, pn: int = 1, ps: int = 20):
-    return {'name': name, 'pn': pn, 'ps': ps}
+async def commonQuery(name: str, pn: int = 1, ps: int = 20, x_bili_cookie: Annotated[str | None, Header()] = None):
+    return {'name': name, 'pn': pn, 'ps': ps, 'bili_cookie': x_bili_cookie}
 
 
 CommonQuery = Annotated[dict, Depends(commonQuery)]
@@ -75,16 +79,31 @@ async def search_by_app(dep: CommonQuery):
 async def search_by_pc(dep: CommonQuery):
     url = 'https://api.bilibili.com/bapis/main.community.interface.emote.EmoteService/AllPackages'
 
-    async with get_session() as session:
+    cookie = dep.get('bili_cookie')
+    cookie_dict = {}
+
+    if cookie and isinstance(cookie, str):
+        for k, v in [c.split('=') for c in cookie.split(';')]:
+            cookie_dict[k.strip()] = v.strip()
+
+    if not cookie_dict or 'SESSDATA' not in cookie_dict or 'bili_jct' not in cookie_dict:
+        auth_method = 'env'
+        cookie = {'bili_jct': os.environ['bili_jct'],
+                  'SESSDATA': os.environ['sessdata']}
+    else:
+        auth_method = 'remote'
+        cookie = {**cookie_dict}
+
+    async with get_session(cookie=cookie) as session:
         resp = await session.get(url, params={
             'business': 'reply',
-            'csrf': os.environ['bili_jct'],
+            'csrf': cookie.get('bili_jct'),
             'pn': dep['pn'],
             'ps': dep['ps'],
             'search': dep['name'],
         })
 
-        return await resp.json()
+        return {**(await resp.json()), 'auth_method': auth_method}
 
 
 async def search_by_pc_id(id: int | str):

@@ -1,11 +1,39 @@
 <template>
   <div class="flex flex-col px-[10px] py-4">
+    <!-- config dialog -->
+    <div v-if="configDialog.show" @click="closeConfigDialog"
+      class="px-2 z-50 left-0 right-0 top-0 bottom-0 fixed bg-black/30 flex justify-center items-center">
+      <!-- config dialog body -->
+      <div @click.stop class="sm:w-1/2 w-full bg-white rounded p-4">
+        <div class="form-item">
+          <label for="cookie">配置本地 Cookie</label>
+          <p class="text-slate-400 text-sm mb-2">
+            如果遇到"账号未登录"问题，请在此处配置自己的B站Cookie，配置成功后将使用配置的Cookie进行请求。网站不会存储任何数据，源码右上角可见。</p>
+          <textarea v-model="configDialog.cookie" name="cookie" id="cookie" cols="30" rows="10"></textarea>
+        </div>
+
+        <div class="mt-4 text-right">
+          <button @click="closeConfigDialog" class="px-2 py-1 rounded bg-red-400 mr-1 text-white">取消</button>
+          <button @click="saveConfig" class="px-2 py-1 rounded bg-blue-400 text-white">确定</button>
+        </div>
+      </div>
+    </div>
     <!-- tab -->
     <div class="tab-list flex gap-2 mb-3 text-sm transition-colors">
       <button v-for="tab in tabBar.list" :key="tab.id" @click="switchTab(tab)" class="tab-list-item"
         :class="{ active: tab.id === tabBar.currentTabId }">{{ tab.name }}</button>
       <!-- <button @click="showChargeEmoteHelper" class="tab-list-item">充电表情</button> -->
       <div class="flex-1"></div>
+
+      <a title="配置cookie" href="/#" @click.prevent="openConfigDialog">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+          class="size-6 text-slate-600">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+        </svg>
+      </a>
+
       <a title="部署同款网站" target="_blank" href="https://github.com/magicFeirl/bili-emoji-downloader-vue">
         <svg viewBox="0 0 24 24" aria-hidden="true" class="size-6 fill-slate-600">
           <path fill-rule="evenodd" clip-rule="evenodd"
@@ -17,7 +45,7 @@
     <!-- search -->
     <div class="search relative card-shadow mb-2">
       <input :disabled="loadingState == 'loading'" @keyup.enter="search()"
-        class="text-slate-600 px-4 py-2 w-full round-md" type="text" v-model="params.keyword"
+        class="text-slate-600 px-4 py-2 w-full rounded-md" type="text" v-model="params.keyword"
         :placeholder="activeTab.placeholder">
       <button :disabled="loadingState == 'loading' || !params.keyword"
         class="absolute right-2 top-[8px] disabled:text-gray-300" @click="search()">
@@ -27,13 +55,6 @@
             d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
         </svg>
       </button>
-    </div>
-
-    <div v-if="loadingState == 'loading'" class="text-slate-400 text-center mt-16">
-      搜索中...
-    </div>
-    <div v-else-if="loadingState == 'error'" class="text-lg text-red-600/60 text-center mt-16">
-      加载失败: {{ searchResult.errorMsg || '未知错误' }}
     </div>
 
     <div v-if="!searchResult.list.length && loadingState == 'null'"
@@ -92,6 +113,12 @@
       </div>
     </section>
 
+    <div v-if="loadingState == 'loading'" class="text-slate-400 text-center mt-16">
+      搜索中...
+    </div>
+    <div v-else-if="loadingState == 'error'" class="text-lg text-red-600/60 text-center my-8">
+      加载失败: {{ searchResult.errorMsg || '未知错误' }}
+    </div>
   </div>
 </template>
 
@@ -130,7 +157,7 @@ onMounted(() => {
 const tabBar = ref({
   currentTabId: 0,
   list: [
-    { id: 0, name: '表情包', placeholder: '输入关键搜索' },
+    { id: 0, name: '表情包', placeholder: '输入关键字搜索' },
     { id: 1, name: '直播间表情包', placeholder: '输入直播间 ID 或 URL' }
   ]
 })
@@ -141,9 +168,45 @@ const params = ref({
   keyword: '',
   pn: 1,
   ps: 5,
-  apiType: 'app', // app | pc
+  // app | pc
+  apiType: 'app',
+  cookie: localStorage.getItem('bili-emoji-downloader-cookie')
 })
 
+const configDialog = ref({
+  show: false,
+  cookie: ""
+})
+
+
+const closeConfigDialog = () => {
+  configDialog.value.cookie = ""
+  configDialog.value.show = false
+}
+
+const openConfigDialog = () => {
+  configDialog.value.cookie = params.value.cookie
+  configDialog.value.show = true
+}
+
+const saveConfig = () => {
+  const cookie = configDialog.value.cookie.trim()
+
+  const isValidCookie = (cookie) => {
+    const keys = cookie.split(';').map(c => c.split('=')).filter(c => c.length).map(c => c[0].trim().toLowerCase())
+    return keys.includes('bili_jct') && keys.includes('sessdata')
+  }
+
+  if (cookie && !isValidCookie(cookie)) {
+    alert('无效的Cookie：Cookie 必须包含 sessdata 和 bili_jct 字段')
+    return
+  }
+
+  localStorage.setItem('bili-emoji-downloader-cookie', cookie)
+  params.value.cookie = cookie
+
+  closeConfigDialog()
+}
 
 const loadingState = ref('null') // null | loading | error
 
@@ -214,6 +277,8 @@ const search = wrap(async (reset = true) => {
     pn: params.value.pn,
     ps: params.value.ps,
     name: keyword
+  }, {
+    'x-bili-cookie': params.value.cookie
   })
 
   if (resp.code !== 0) {
@@ -355,5 +420,18 @@ const expandCard = (pack) => {
 
 .card-shadow {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+}
+
+.form-item {
+  @apply flex flex-col;
+}
+
+.form-item label {
+  @apply text-slate-600 text-lg mb-2 font-bold;
+}
+
+.form-item textarea,
+.form-item input {
+  @apply ring-1 ring-slate-300 rounded-lg p-2;
 }
 </style>

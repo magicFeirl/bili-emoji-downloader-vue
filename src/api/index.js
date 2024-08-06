@@ -5,9 +5,10 @@ const API = {
   'emoteDetail': '/detail'
 }
 
-export async function searchEmojiByKeyword(params) {
+export async function searchEmojiByKeyword(params, headers = {}) {
   return await http.get(API.searchEmojiByKeyword, {
-    params
+    params,
+    headers
   })
 }
 

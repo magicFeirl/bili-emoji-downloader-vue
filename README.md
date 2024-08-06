@@ -18,7 +18,12 @@
 
 ~~复用性问题：每个 endpoint 需要单独创建对应的文件，其中创建 FastAPI 实例和其它代码可能大量重复，可能需要导出成一个公共文件之后分别导入~~
 
-具体路由可以参考官方示例配置文件：[vercel.json](https://github.com/vercel/examples/blob/main/python/flask2/vercel.json)
+具体路由可以参考官方示例配置文件：[vercel.json](https://github.com/vercel/examples/blob/main/python/flask2/vercel.json)，[rewrites-on-verce](https://vercel.com/docs/edge-network/rewrites#rewrites-on-vercel)
+
+此外，FastAPI 结合 Vue 的时候，接口端点一般会加上 `/api` 前缀，发送请求时路由接收到的是 `/api/xxx`，如果后端的路由是 `/xxx` 则会 404，解决方法有两个：
+1. 后端路由统一添加 `/api` 前缀，也就是 `/api/xxx`
+2. 设置 `root_path='/api'`，实例功能有点类似前端反代的 path rewrite，但是接受到请求时会去掉 `/api` 前缀，[root_path 文档](https://fastapi.tiangolo.com/advanced/behind-a-proxy/?h=root_#providing-the-root_path)
+
 
 
 ## 开发
@@ -28,4 +33,8 @@ npm install
 npm run dev
 
 npm run build
+
+# python
+cd api
+uvicorn index:app
 ```
