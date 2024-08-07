@@ -7,8 +7,8 @@
       <div @click.stop class="sm:w-1/2 w-full bg-white rounded p-4">
         <div class="form-item">
           <label for="cookie">配置本地 Cookie</label>
-          <p class="text-slate-400 text-sm mb-2">
-            如果遇到"账号未登录"问题，请在此处配置自己的B站Cookie，配置成功后将使用配置的Cookie进行请求。网站不会存储任何数据，源码右上角可见。</p>
+          <p class="text-slate-400 text-sm mb-4">
+            如果遇到"账号未登录"问题，请在此处配置自己的B站Cookie，配置成功后将使用配置的Cookie进行请求。网站后端不会存储任何数据，源码右上角可见。</p>
           <textarea v-model="configDialog.cookie" name="cookie" id="cookie" cols="30" rows="10"></textarea>
         </div>
 
@@ -71,7 +71,7 @@
         <p class="text-lg text-gray-800 hover:text-blue-400 transition-colors"><a :href="pack.meta.item_url"
             target="_blank">
             {{ pack.text
-            }}({{ pack.emote.length }})</a></p>
+            }}({{ pack.emote.length }}{{ searchResult.method === 'pc' ? '+' : '' }})</a></p>
         <div class="flex-1"></div>
         <label :class="pack.tojpg ? 'text-blue-400' : ''" for="tojpg">转为JPG</label>
         <input v-model="pack.tojpg" type="checkbox" id="tojpg" class="mr-2 ml-1">
@@ -213,7 +213,8 @@ const loadingState = ref('null') // null | loading | error
 const searchResult = ref({
   list: [],
   page: {},
-  errorMsg: ''
+  errorMsg: '',
+  method: ''
 })
 
 const switchTab = (tab) => {
@@ -288,6 +289,8 @@ const search = wrap(async (reset = true) => {
   // 考虑到配置难度后端也提供了用 cookie 请求的接口，两种接口格式不同但是对用户来说是无感的，所以前端需要统一一下，将接口格式都转为 app 端的格式
   const apiType = params.value.apiType = resp.data.MobiApp != undefined ? 'app' : 'pc'
   searchResult.value.list.push(...formatApiResult(apiType, resp))
+  searchResult.value.method = resp.method
+
   // pc 端分页转为移动端分页格式
   if (apiType === 'pc') {
     const { total, ps, pn } = resp.data
