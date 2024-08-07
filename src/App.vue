@@ -71,7 +71,7 @@
         <p class="text-lg text-gray-800 hover:text-blue-400 transition-colors"><a :href="pack.meta.item_url"
             target="_blank">
             {{ pack.text
-            }}({{ pack.emote.length }}{{ searchResult.method === 'pc' ? '+' : '' }})</a></p>
+            }}({{ pack.emote.length }}{{ params.apiType === 'pc' ? '+' : '' }})</a></p>
         <div class="flex-1"></div>
         <label :class="pack.tojpg ? 'text-blue-400' : ''" for="tojpg">转为JPG</label>
         <input v-model="pack.tojpg" type="checkbox" id="tojpg" class="mr-2 ml-1">
@@ -136,9 +136,10 @@ onMounted(() => {
   document.addEventListener('scroll', (e) => {
     const { scrollTop, scrollHeight } = document.documentElement
     const height = window.innerHeight
-    const total = searchResult.value.page.total
+    const { total, ps, pn } = searchResult.value.page
+    const hasNext = pn * ps < total
 
-    if (scrollTop + height > scrollHeight - 100 && total && loadingState.value == 'null') {
+    if (hasNext && loadingState.value == 'null' && scrollTop + height > scrollHeight - 100) {
       params.value.pn += 1
       search(false)
     }
@@ -289,7 +290,6 @@ const search = wrap(async (reset = true) => {
   // 考虑到配置难度后端也提供了用 cookie 请求的接口，两种接口格式不同但是对用户来说是无感的，所以前端需要统一一下，将接口格式都转为 app 端的格式
   const apiType = params.value.apiType = resp.data.MobiApp != undefined ? 'app' : 'pc'
   searchResult.value.list.push(...formatApiResult(apiType, resp))
-  searchResult.value.method = resp.method
 
   // pc 端分页转为移动端分页格式
   if (apiType === 'pc') {
@@ -300,13 +300,9 @@ const search = wrap(async (reset = true) => {
   }
 
   searchResult.value.page = resp.data.page
-
-  if (resp.data.page.total < params.value.ps) {
-    searchResult.value.page.total = 0
-  }
 }, () => loadingState.value = 'loading', (state, error) => {
   loadingState.value = 'null'
-  console.log(state, error);
+  
   if (state == 'error') {
     loadingState.value = 'error'
     searchResult.value.errorMsg = error
@@ -322,7 +318,6 @@ const search = wrap(async (reset = true) => {
 
 const loadPackForPC = async (pack) => {
   if (params.value.apiType === 'pc' && !pack.downloading) {
-    pack.downloading = true
     const data = await API.getEmojiDetailById(pack.id)
     pack.emote = data.data.package.emotes
   }
@@ -336,9 +331,7 @@ const download = async (pack) => {
     return `# ${title}\n# 表情包名称：${name}\n# 购买链接:${pack.meta.item_url}\n\n${urls}`
   }
 
-  await loadPackForPC(pack)
-
-  expandCard(pack)
+  await expandCard(pack)
 
   pack.downloading = true;
 
@@ -382,7 +375,6 @@ const downloadSingle = async (e, save = false, tojpg = false) => {
         ctx.drawImage(img, 0, 0)
         canvas.toBlob((blob) => {
           resolve(blob)
-          console.log(blob);
           URL.revokeObjectURL(img.src)
         }, 'image/jpeg', 1)
       } else {
@@ -400,7 +392,11 @@ const downloadSingle = async (e, save = false, tojpg = false) => {
   })
 }
 
-const expandCard = (pack) => {
+const expandCard = async (pack) => {
+  if (params.value.apiType === 'pc') {
+    await loadPackForPC(pack)
+  }
+
   pack.expanded = true
 }
 
