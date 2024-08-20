@@ -1,5 +1,5 @@
 import os
-from typing import Annotated
+from typing import Annotated, Optional
 
 from contextlib import asynccontextmanager
 
@@ -36,15 +36,8 @@ app.add_middleware(
 )
 
 
-def get_session(**kwargs):
-    sessdata, bili_jct = os.environ.get(
-        'sessdata', ''), os.environ.get('bili_jct', '')
-
-    # 没传或者传空 cookie，用环境变量的 cookie
-    if (not kwargs.get('cookie')) and sessdata and bili_jct:
-        cookie = f'SESSDATA={sessdata}; bili_jct={bili_jct}'
-    else:
-        cookie = kwargs.get('cookie', '')
+def get_session(dep):
+    cookie, _ = get_cookie(dep)
 
     if isinstance(cookie, dict):
         cookie = '; '.join([f'{k}={v}' for k, v in cookie.items()])
@@ -56,29 +49,14 @@ def get_session(**kwargs):
     })
 
 
-async def commonQuery(name: str, pn: int = 1, ps: int = 20, x_bili_cookie: Annotated[str | None, Header()] = None):
-    return {'name': name, 'pn': pn, 'ps': ps, 'bili_cookie': x_bili_cookie}
+async def commonQuery(pn: int = 1, ps: int = 20, x_bili_cookie: Annotated[str | None, Header()] = None):
+    return {'pn': pn, 'ps': ps, 'bili_cookie': x_bili_cookie}
 
 
 CommonQuery = Annotated[dict, Depends(commonQuery)]
 
 
-async def search_by_app(dep: CommonQuery):
-    access_key, appkey = os.environ['access_key'], os.environ['appkey']
-    url = f'https://api.bilibili.com/x/emote/package/search?access_key={access_key}&appkey={appkey}&business=reply&name={dep["name"]}'
-    # vercel backend 似乎不能用全局变量保存 session
-    async with get_session() as session:
-        async with session.get(url, params={
-            'business': 'reply',
-            'pn': dep['pn'],
-            'ps': dep['ps']
-        }) as resp:
-            return await resp.json()
-
-
-async def search_by_pc(dep: CommonQuery):
-    url = 'https://api.bilibili.com/bapis/main.community.interface.emote.EmoteService/AllPackages'
-
+def get_cookie(dep: CommonQuery):
     cookie = dep.get('bili_cookie')
     cookie_dict = {}
 
@@ -94,31 +72,50 @@ async def search_by_pc(dep: CommonQuery):
         auth_method = 'remote'
         cookie = {**cookie_dict}
 
-    async with get_session(cookie=cookie) as session:
-        resp = await session.get(url, params={
-            'business': 'reply',
-            'csrf': cookie.get('bili_jct'),
-            'pn': dep['pn'],
-            'ps': dep['ps'],
-            'search': dep['name'],
-        })
+    return (cookie, auth_method)
 
-        return {**(await resp.json()), 'auth_method': auth_method}
+
+async def basic_get(url: str, dep: CommonQuery, **kwargs):
+    async with get_session(dep) as session:
+        async with session.get(url, **kwargs) as resp:
+            return {**await resp.json()}
+
+
+async def search_by_app(name: str, dep: CommonQuery):
+    access_key, appkey = os.environ['access_key'], os.environ['appkey']
+    url = f'https://api.bilibili.com/x/emote/package/search?access_key={access_key}&appkey={appkey}&business=reply&name={name}'
+
+    return await basic_get(url, dep, params={
+        'business': 'reply',
+        'pn': dep['pn'],
+        'ps': dep['ps']
+    })
+
+
+async def search_by_pc(name: str, dep: CommonQuery):
+    url = 'https://api.bilibili.com/bapis/main.community.interface.emote.EmoteService/AllPackages'
+
+    cookie, _ = get_cookie(dep)
+
+    return await basic_get(url, dep, params={
+        'business': 'reply',
+        'csrf': cookie.get('bili_jct'),
+        'pn': dep['pn'],
+        'ps': dep['ps'],
+        'search': name,
+    })
 
 
 async def search_by_pc_id(id: int | str):
     url = 'https://api.bilibili.com/bapis/main.community.interface.emote.EmoteService/PackageDetail'
 
-    async with get_session() as session:
-        resp = await session.get(url, params={
-            'business': 'reply',
-            'id': id
-        })
-
-        return await resp.json()
+    return await basic_get(url, {}, params={
+        'business': 'reply',
+        'id': id
+    })
 
 
-@app.get('/detail')
+@ app.get('/detail', description='通过 PC 端接口获取表情包详情')
 async def get_detail_by_id(id: int | str):
     if not os.environ['bili_jct'] or not os.environ['sessdata']:
         return {'code': -1, 'message': '该接口仅在配置 cookie 登录后可用'}
@@ -126,13 +123,45 @@ async def get_detail_by_id(id: int | str):
     return await search_by_pc_id(id)
 
 
-@app.get('/index')
-async def search(query: CommonQuery):
+@ app.get('/collection')
+async def search_collection(keyword: str, query: CommonQuery):
+    url = 'https://api.bilibili.com/x/garb/v2/mall/home/search'
+
+    query.pop('bili_cookie')
+
+    return await basic_get(url, query, params={
+        **query,
+        'key_word': keyword
+    })
+
+
+@ app.get('/collection-detail')
+async def collection_detail(act_id: int, lottery_id: int, query: CommonQuery):
+    url = 'https://api.bilibili.com/x/vas/dlc_act/lottery/detail'
+
+    return await basic_get(url, query,  params={
+        'act_id': act_id,
+        'lottery_id': lottery_id,
+    })
+
+
+@ app.get('/suit-detail')
+async def suit_detail(item_id: int, query: CommonQuery):
+    url = 'https://api.bilibili.com/x/garb/v2/mall/suit/detail'
+
+    return await basic_get(url, query, params={
+        'item_id': item_id,
+        'part': 'suit',
+    })
+
+
+@ app.get('/index')
+async def search(name: str, query: CommonQuery):
     access_key, appkey = os.environ.get('access_key'), os.environ.get('appkey')
     sessdata, bili_jct = os.environ.get('sessdata'), os.environ.get('bili_jct')
 
     if sessdata and bili_jct:
-        return {**(await search_by_pc(query)), 'method': 'pc'}
+        return {**(await search_by_pc(name, query)), 'method': 'pc'}
     elif access_key and appkey:
         return {**(await search_by_app(query)), 'method': 'app'}
     else:
