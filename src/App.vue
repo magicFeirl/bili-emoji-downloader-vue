@@ -45,7 +45,7 @@
         v-for="tab in tabBar.list"
         :key="tab.id"
         @click="switchTab(tab)"
-        class="tab-list-item"
+        class="tab-list-item text-ellipsis max-w-fit break-all text-nowrap overflow-hidden"
         :class="{ active: tab.id === tabBar.currentTabId }"
       >
         {{ tab.name }}
@@ -490,7 +490,7 @@ const search = wrap(
 }
 
 .tab-list-item.active {
-  @apply text-slate-900 bg-slate-100;
+  @apply text-slate-900 bg-slate-100 overflow-visible;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
 }
 

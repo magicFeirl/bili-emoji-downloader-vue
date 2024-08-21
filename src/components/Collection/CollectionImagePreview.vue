@@ -316,7 +316,7 @@ const download = async () => {
       item.downloaded = true;
       zip.file(item.filename, blob);
       // 每下载 k 张图片就滚动到对应图片的位置
-      if (i > 0 && i % 8 === 0) {
+      if (i > 0 && i % 5 === 0) {
         nextTick(() => {
           imageEls[i] &&
             imageEls[i].scrollIntoView({
