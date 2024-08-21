@@ -3,7 +3,10 @@ const obs = new IntersectionObserver((items) => {
   for (const item of items) {
     if (item.isIntersecting) {
       const { target } = item
-      target.src = target.getAttribute('data-src')
+      const src = target.getAttribute('data-src')
+      if (src) {
+        target.src = src
+      }
       obs.unobserve(item.target)
     }
   }
@@ -12,7 +15,11 @@ const obs = new IntersectionObserver((items) => {
 })
 
 export const vLazy = {
-  beforeMount: (el) => {
+  beforeMount: (el, bindings) => {
+    // bg修饰添加背景
+    if (bindings.modifiers.bg) {
+      el.style.backgroundColor = `rgb(148 163 184 / 0.4)`
+    }
     obs.observe(el)
   },
   beforeUnmount(el) {

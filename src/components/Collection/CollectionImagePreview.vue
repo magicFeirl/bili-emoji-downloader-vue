@@ -14,6 +14,7 @@
           <div class="flex-1"></div>
 
           <button
+            title="下载"
             :disabled="state.downloading"
             class="disabled:text-gray-300 mr-4"
             @click="download"
@@ -36,6 +37,7 @@
 
           <!-- selection -->
           <button
+            title="选择模式"
             @click="toggleSelectionMode"
             class="flex items-center pt-1"
             :class="{ 'text-green-400': state.selectionMode }"
@@ -59,6 +61,23 @@
               >({{ selectImages.length }} / {{ totalImages }})</span
             >
           </button>
+
+          <button @click="searchEmoji" title="跳转搜索表情包" class="ml-4 mt-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"
+              />
+            </svg>
+          </button>
         </div>
 
         <!-- close -->
@@ -80,18 +99,20 @@
         </button>
 
         <img
-          v-lazy
+          v-lazy.bg
           class="object-cover h-[220px] w-full"
-          :src="state.headerImage"
+          :class="state.itemType == 'ip' ? 'object-center' : 'object-top'"
+          :src="`${state.headerImage}${IMAGE_BUCKET.header}`"
           alt=""
         />
       </header>
 
-      <main @click.stop class="my-2 mb-8 sm:px-0 px-2">
+      <main class="my-2 mb-8 sm:px-0 px-2">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div
-            v-for="item in state.images"
-            class="image-grid-item justify-self-center"
+            @click.stop
+            v-for="(item, idx) in state.images"
+            class="image-grid-item justify-self-center w-full"
             :class="{ select: item.select }"
             :key="item.id"
           >
@@ -114,10 +135,13 @@
 
             <span class="select-pointer"></span>
             <img
-              v-lazy
-              class="rounded-md h-[255px] object-cover"
+              v-lazy.bg
+              class="rounded-md h-[255px] object-cover w-full"
               :class="{ 'ring ring-green-400': item.downloaded }"
-              :data-src="item.cover_url"
+              :data-src="`${item.cover_url.replace(/@.+/, '')}${
+                IMAGE_BUCKET.cover
+              }`"
+              :data-index="idx"
               @click="toggleImageSelect(item)"
             />
           </div>
@@ -134,14 +158,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import * as API from "@/api";
 import { vLazy } from "@/directives/lazy";
 
 import ImagePreview from "@/components/Collection/ImagePreview.vue";
 
-import JSzip from "jszip";
-import { saveAs } from "file-saver";
+import useJSZip from "@/utils/useJSZip.js";
+import useInfoHeader from "@/utils/useInfoHeader.js";
 
 const props = defineProps({
   data: {
@@ -152,6 +176,7 @@ const props = defineProps({
 
 const IMAGE_BUCKET = {
   header: ``,
+  cover: `@600w_1080h`, //`@1080w_1618h`
 };
 
 const data = ref({ ...props.data });
@@ -188,13 +213,19 @@ const loadCollection = async () => {
     const info = item.card_info.card_type_info;
     const bg = info.space_background;
     const has_ani = bg.animation;
-    const cover_url = has_ani
+    let cover_url = has_ani
       ? bg.animation.animation_backup_image
       : info.space_background.image.default_image;
 
+    cover_url = cover_url || info.overview_image;
+
     let image_url = has_ani ? bg.animation.animation_url : cover_url;
     // 目测较早出的收藏集有的没有 animation_url 字段，用 video_urls 替代
-    image_url = image_url || bg.animation.animation_video_urls[0];
+    // animation_video_urls https 协议可以直接播放/下载
+
+    if (has_ani && bg.animation.animation_video_urls) {
+      image_url = bg.animation.animation_video_urls[0];
+    }
 
     const ext = image_url.slice(image_url.lastIndexOf("."));
 
@@ -209,16 +240,12 @@ const loadCollection = async () => {
       downloaded: false,
     };
   });
-
-  // state.value.headerImage = `${
-  //   state.value.images.find((item) => item.filetype === "image").url
-  // }${IMAGE_BUCKET.header}`;
 };
 
 const loadSuit = async () => {
   const { item_id } = data.value;
   const result = (await API.getSuitDetail(item_id)).data;
-  state.value.headerImage = `${result.properties.fan_share_image}${IMAGE_BUCKET.header}`;
+  state.value.headerImage = `${result.properties.fan_share_image}`;
   state.value.jumplink = `https://www.bilibili.com/h5/mall/suit/detail?navhide=1&id=${result.item_id}`;
   state.value.title = result.name;
 
@@ -259,10 +286,26 @@ const toggleSelectionMode = () => {
 };
 
 const download = async () => {
-  state.value.downloading = true;
-  const zip = new JSzip();
+  const generatePackInfoText = () => {
+    console.log(state.value);
+    const images = selectImages.value.length
+      ? selectImages.value
+      : state.value.images;
 
-  for (const item of state.value.images) {
+    return useInfoHeader({
+      name: state.value.title,
+      jumplink: state.value.jumplink,
+      urls: images.map((e) => ({ name: e.filename, url: e.url })),
+    });
+  };
+
+  state.value.downloading = true;
+  const zip = new useJSZip();
+  const imageEls = document.querySelectorAll("img[data-index]");
+
+  for (let i = 0, l = state.value.images.length; i < l; i++) {
+    const item = state.value.images[i];
+
     if (selectImages.value.length && !item.select) {
       continue;
     }
@@ -272,14 +315,22 @@ const download = async () => {
       const blob = await resp.blob();
       item.downloaded = true;
       zip.file(item.filename, blob);
+      // 每下载 k 张图片就滚动到对应图片的位置
+      if (i > 0 && i % 8 === 0) {
+        nextTick(() => {
+          imageEls[i] &&
+            imageEls[i].scrollIntoView({
+              behavior: "smooth",
+            });
+        });
+      }
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
   }
 
-  zip.generateAsync({ type: "blob" }).then((data) => {
-    saveAs(data, `${state.value.title}.zip`);
-  });
+  zip.file("info.txt", generatePackInfoText());
+  await zip.downloadAsync(`${state.value.title}.zip`);
 
   state.value.downloading = false;
 };
@@ -294,10 +345,15 @@ const loadData = async () => {
 
 loadData();
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "search-emoji"]);
 
 const close = () => {
   emit("close");
+};
+
+const searchEmoji = () => {
+  close();
+  emit("search-emoji", state.value.title);
 };
 </script>
 

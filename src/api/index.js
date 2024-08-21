@@ -22,9 +22,9 @@ export async function getEmojiDetailById(id) {
 }
 
 
-export async function getCollectionList(keyword) {
+export async function getCollectionList(params) {
   return await http.get(API.collectionList, {
-    params: { keyword }
+    params
   })
 }
 

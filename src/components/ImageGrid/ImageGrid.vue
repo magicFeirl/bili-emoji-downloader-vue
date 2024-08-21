@@ -14,13 +14,9 @@
       <label :class="state.tojpg ? 'text-blue-400' : ''" for="tojpg"
         >转为JPG</label
       >
-      <input
-        v-model="state.tojpg"
-        type="checkbox"
-        id="tojpg"
-        class="mr-2 ml-1"
-      />
+      <input v-model="state.tojpg" type="checkbox" id="tojpg" class="mx-2" />
       <button
+        title="下载"
         :disabled="state.downloading"
         class="download -mt-2 disabled:text-gray-300"
         @click="downloadAll()"
@@ -37,6 +33,27 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+          />
+        </svg>
+      </button>
+
+      <button
+        title="搜索装扮/收藏集"
+        class="ml-2 -mt-1"
+        @click="handleSearchSuit"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
           />
         </svg>
       </button>
@@ -111,13 +128,23 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import JSzip from "jszip";
+import { ref, onMounted } from "vue";
 import { saveAs } from "file-saver";
 
 import * as API from "@/api";
 
-import { vLazy } from "@/directives/lazy";
+import { vLazy } from "@/directives/lazy.js";
+import useJSZip from "@/utils/useJSZip.js";
+import useInfoHeader from "@/utils/useInfoHeader.js";
+
+onMounted(() => {
+  window.addEventListener("resize", async (e) => {
+    // PC 接口只有 10 条数据，宽度过小时自动展开卡片
+    if (props.type.apiType === "pc" && window.innerWidth < 540) {
+      await expandCard();
+    }
+  });
+});
 
 const props = defineProps({
   // pack: API 接口返回的原始数据结构
@@ -200,17 +227,18 @@ const downloadSingle = async (e, save = false) => {
 
 const downloadAll = async () => {
   const generatePackInfoText = () => {
-    const title = `由 ${location.href} 导出，项目地址: https://github.com/magicFeirl/bili-emoji-downloader-vue\n# 表情包版权归原作者所有`;
-    const name = props.title;
-    const urls = imageList.value.map((e) => `# ${e.text}\n${e.url}`).join("\n");
-    return `# ${title}\n# 表情包名称：${name}\n# 购买链接:${props.item_url}\n\n${urls}`;
+    return useInfoHeader({
+      name: props.title,
+      jumplink: props.item_url,
+      urls: imageList.value.map((e) => ({ name: e.text, url: e.url })),
+    });
   };
 
   state.value.downloading = true;
 
   await expandCard();
 
-  const zip = new JSzip();
+  const zip = new useJSZip();
   for (const e of imageList.value) {
     try {
       const { filename, blob } = await downloadSingle(e, false);
@@ -223,9 +251,7 @@ const downloadAll = async () => {
 
   zip.file("info.txt", generatePackInfoText());
 
-  zip.generateAsync({ type: "blob" }).then((data) => {
-    saveAs(data, props.title + ".zip");
-  });
+  await zip.downloadAsync(props.title);
 
   state.value.downloading = false;
 };
@@ -245,6 +271,11 @@ const expandCard = async () => {
   await loadPackForPC();
 
   state.value.expanded = true;
+};
+
+const emit = defineEmits(["search-suit"]);
+const handleSearchSuit = () => {
+  emit("search-suit", props.title);
 };
 </script>
 

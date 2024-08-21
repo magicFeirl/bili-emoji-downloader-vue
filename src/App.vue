@@ -14,6 +14,7 @@
             如果遇到"账号未登录"问题，请在此处配置自己的B站Cookie，配置成功后将使用配置的Cookie进行请求。网站后端不会存储任何数据，源码右上角可见。
           </p>
           <textarea
+            placeholder="SESSDATA=xxx;bili_jct=xxx;...."
             v-model="configDialog.cookie"
             name="cookie"
             id="cookie"
@@ -145,12 +146,13 @@
         :title="result.title"
         :imageList="result.imageList"
         :type="{ apiType: params.apiType, emoteType: 'emote' }"
-        @load-pack="() => {}"
+        @search-suit="handleSearchSuit"
       ></ImageGrid>
     </template>
     <template v-else-if="activeTab.type === 'collection'">
       <CollectionGrid>
         <CollectionItem
+          @search-emoji="handleSearchEmoji"
           v-for="item in colSearchResult.list"
           :key="item.id"
           :data="item"
@@ -174,7 +176,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, nextTick } from "vue";
 import { wrap } from "@/utils";
 import * as API from "@/api";
 
@@ -185,31 +187,30 @@ import CollectionItem from "@/components/Collection/CollectionItem.vue";
 onMounted(() => {
   // init infinte scrolling
   /// todo: 添加防抖
-  document.addEventListener("scroll", (e) => {
+  document.addEventListener("scroll", async (e) => {
     const { scrollTop, scrollHeight } = document.documentElement;
     const height = window.innerHeight;
-    const { total, ps, pn } = searchResult.value.page;
-    const hasNext = pn * ps < total;
 
-    if (
-      hasNext &&
-      loadingState.value == "null" &&
-      scrollTop + height > scrollHeight - 100
-    ) {
-      params.value.pn += 1;
-      search(false);
-    }
-  });
-
-  window.addEventListener("resize", (e) => {
-    // PC 接口只有 10 条数据，宽度过小时自动展开卡片
-    if (params.value.apiType === "pc" && window.innerWidth < 540) {
-      for (const li of searchResult.value.list) {
-        expandCard(li);
-      }
+    if (scrollTop + height > scrollHeight - 100) {
+      await loadNext();
     }
   });
 });
+
+const loadNext = async () => {
+  const { total, ps, pn } =
+    activeTab.value.type === "collection"
+      ? colSearchResult.value.page
+      : searchResult.value.page;
+  const hasNext = pn * ps < total;
+
+  // console.log(hasNext, pn, ps, total, loadingState.value);
+
+  if (hasNext && loadingState.value == "null") {
+    params.value.pn += 1;
+    await search(false);
+  }
+};
 
 const tabBar = ref({
   currentTabId: 0,
@@ -289,11 +290,7 @@ const loadingState = ref("null"); // null | loading | error
 
 const searchResult = ref({
   list: [
-    // {
-    //   imageList: [],
-    //   title: "",
-    //   meta: {},
-    // },
+    /*{ imageList: [], title: "", meta: {} }*/
   ],
   errorMsg: "",
   method: "",
@@ -301,14 +298,40 @@ const searchResult = ref({
 
 const colSearchResult = ref({
   list: [],
+  page: {},
   errorMsg: "",
 });
 
-const switchTab = (tab) => {
+const switchTab = async (tab) => {
   tabBar.value.currentTabId = tab.id;
   // 清空搜索结果
   searchResult.value.list = [];
+  colSearchResult.value.list = [];
+
+  if (params.value.keyword) {
+    await search();
+    // const { id } = activeTab.value;
+    //id=0: 自动搜索表情包; 1自动搜索收藏集
+    // if (id === 0) {
+    //   await searchEmoji();
+    // } else if (id === 1) {
+    //   await searchCollection();
+    // }
+  }
   // params.value.keyword = "";
+};
+
+const handleSearchFromTab = (kw, tabIdx) => {
+  params.value.keyword = kw;
+  switchTab(tabBar.value.list[tabIdx]);
+};
+
+const handleSearchEmoji = (kw) => {
+  handleSearchFromTab(kw, 0);
+};
+
+const handleSearchSuit = (kw) => {
+  handleSearchFromTab(kw, 1);
 };
 
 const formatApiResult = (apiType, resp) => {
@@ -398,13 +421,19 @@ const searchEmoji = async () => {
 };
 
 const searchCollection = async () => {
-  const resp = await API.getCollectionList(params.value.keyword);
+  const resp = await API.getCollectionList({
+    keyword: params.value.keyword,
+    pn: params.value.pn,
+    ps: 20,
+  });
 
   if (resp.code !== 0) {
     throw `code:${resp.code} message:${resp.message}`;
   }
 
-  colSearchResult.value.list = resp.data.list;
+  colSearchResult.value.list.push(...resp.data.list);
+  const { pn, ps, total } = resp.data;
+  colSearchResult.value.page = { pn, ps, total };
 };
 
 /**
@@ -437,6 +466,13 @@ const search = wrap(
       loadingState.value = "error";
       searchResult.value.errorMsg = error;
     }
+   
+    // 没有滚动条，自动加载下一页
+    nextTick(() => {
+      if (document.body.scrollHeight <= window.innerHeight) {
+        loadNext().then(() => {});
+      }
+    });
   }
 );
 

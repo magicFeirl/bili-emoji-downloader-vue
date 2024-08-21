@@ -16,6 +16,7 @@
   <CollectionImagePreview
     :data="data"
     @close="closeImagePreview"
+    @search-emoji="handleSearchEmoji"
     v-if="state.preview"
   ></CollectionImagePreview>
 </template>
@@ -46,6 +47,11 @@ const openImagePreview = () => {
 const closeImagePreview = () => {
   state.value.preview = false;
   document.body.style.overflow = "auto";
+};
+
+const emit = defineEmits(["search-emoji"]);
+const handleSearchEmoji = (kw) => {
+  emit("search-emoji", kw);
 };
 </script>
 

@@ -5,4 +5,5 @@ body {
 
 #app {
   width: min(720px, 100%);
+  /* min-height: 105vh; */
 }
