@@ -396,7 +396,7 @@ const searchEmoji = async () => {
     searchResult.value.list.push({
       imageList: [...item.emote],
       title: item.text,
-      item_url: item.meta.item_url,
+      item_url: item.meta.item_url.replace(/&vmid=\d+/, ''),
       pack: { ...item },
       emoteType: "emote",
     });

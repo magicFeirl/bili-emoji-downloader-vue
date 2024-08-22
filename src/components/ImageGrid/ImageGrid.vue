@@ -5,20 +5,18 @@
   >
     <!-- header -->
     <div class="flex mb-4 pb-1 items-center">
-      <p class="text-lg text-gray-800 hover:text-blue-400 transition-colors">
+      <p
+        class="mr-2 leading-[28px] text-lg text-gray-800 hover:text-blue-400 transition-colors text-nowrap overflow-hidden max-sm:text-ellipsis"
+      >
         <a :href="item_url" target="_blank">
           {{ title }}({{ imageList.length }})
         </a>
       </p>
       <div class="flex-1"></div>
-      <label :class="state.tojpg ? 'text-blue-400' : ''" for="tojpg"
-        >转为JPG</label
-      >
-      <input v-model="state.tojpg" type="checkbox" id="tojpg" class="mx-2" />
       <button
         title="下载"
         :disabled="state.downloading"
-        class="download -mt-2 disabled:text-gray-300"
+        class="download disabled:text-gray-300 mr-2 -mt-2"
         @click="downloadAll()"
       >
         <svg
@@ -37,27 +35,65 @@
         </svg>
       </button>
 
-      <button
-        title="搜索装扮/收藏集"
-        class="ml-2 -mt-1"
-        v-if="type.emoteType === 'emote'"
-        @click="handleSearchSuit"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="size-6"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-          />
-        </svg>
-      </button>
+      <Dropdown v-model="state.showDropdown" class="button-nav-dropdown">
+        <template #dropdown>
+          <button @click="() => (state.showDropdown = true)">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+              />
+            </svg>
+          </button>
+        </template>
+        <template #dropdown-body>
+          <div class="flex">
+            <label class="text-nowrap" for="tojpg">转为 JPG</label>
+            <input
+              v-model="state.tojpg"
+              type="checkbox"
+              id="tojpg"
+              class="mx-2"
+            />
+          </div>
+          <div class="flex">
+            <label class="text-nowrap" for="gif">优先下载 GIF</label>
+            <input v-model="state.gif" type="checkbox" id="gif" class="mx-2" />
+          </div>
+          <div>
+            <button
+              title="搜索装扮/收藏集"
+              class="text-nowrap flex"
+              v-if="type.emoteType === 'emote'"
+              @click="handleSearchSuit"
+            >
+              <span class="mr-1">搜索装扮/收藏集</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="size-6"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+                />
+              </svg>
+            </button>
+          </div>
+        </template>
+      </Dropdown>
     </div>
     <!-- content -->
     <div
@@ -131,6 +167,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { saveAs } from "file-saver";
+import Dropdown from "@/components/Dropdown/Dropdown.vue";
 
 import * as API from "@/api";
 
@@ -183,17 +220,22 @@ const props = defineProps({
 
 const state = ref({
   tojpg: true,
+  gif: true,
   expanded: false,
   downloading: false,
+  showDropdown: false,
 });
 
 const imageList = ref([...props.imageList]);
 
 const downloadSingle = async (e, save = false) => {
-  const resp = await fetch(e.url.replace("http:", location.protocol));
-  const { tojpg } = state.value;
-  const filename =
-    e.text + (tojpg ? ".jpg" : e.url.slice(e.url.lastIndexOf(".")));
+  // 优先下载 gif (e.gif_url || e.url)
+  let url = state.value.gif ? e.gif_url || e.url : e.url;
+
+  const resp = await fetch(url.replace("http:", location.protocol));
+  // 选择下载 gif 且有 gif_url 时，无视转为 jpg 选项
+  const { tojpg } = state.value.gif && e.gif_url ? false : state.value;
+  const filename = e.text + (tojpg ? ".jpg" : url.slice(url.lastIndexOf(".")));
   const blob = await resp.blob();
 
   const img = new Image();
