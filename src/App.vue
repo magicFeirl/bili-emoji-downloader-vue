@@ -10,8 +10,9 @@
       <div @click.stop class="sm:w-1/2 w-full bg-white rounded p-4">
         <div class="form-item">
           <label for="cookie">配置本地 Cookie</label>
-          <p class="text-slate-400 text-sm mb-4">
+          <p class="text-slate-400 text-sm mb-4 [&>p]:my-2">
             如果遇到"账号未登录"问题，请在此处配置自己的B站Cookie，配置成功后将使用配置的Cookie进行请求。网站后端不会存储任何数据，源码右上角可见。
+            <p>*装扮/收藏集分类目前无需登录</p>
           </p>
           <textarea
             placeholder="SESSDATA=xxx;bili_jct=xxx;...."
@@ -39,12 +40,15 @@
         </div>
       </div>
     </div>
+
     <!-- tab -->
-    <div class="tab-list flex gap-2 mb-3 text-sm transition-colors">
+    <div
+      class="tab-list flex gap-2 mb-3 text-sm transition-colors items-center"
+    >
       <button
         v-for="tab in tabBar.list"
         :key="tab.id"
-        @click="switchTab(tab)"
+        @click="switchTab(tab, activeTab.id)"
         class="tab-list-item text-ellipsis max-w-fit break-all text-nowrap overflow-hidden"
         :class="{ active: tab.id === tabBar.currentTabId }"
       >
@@ -93,6 +97,7 @@
         </svg>
       </a>
     </div>
+
     <!-- search -->
     <div class="search relative card-shadow mb-2">
       <input
@@ -125,6 +130,7 @@
       </button>
     </div>
 
+    <!-- empty -->
     <div
       v-if="isNoData && loadingState == 'null'"
       class="flex flex-col items-center justify-center mt-12"
@@ -137,7 +143,10 @@
       <p class="text-slate-400 mt-2">什么都没找到</p>
     </div>
 
-    <template v-if="activeTab.type === 'emote'">
+    <!-- emoticons/collections & suits -->
+    <template
+      v-if="activeTab.type === 'emote' || activeTab.type === 'liveroom'"
+    >
       <ImageGrid
         v-for="result in searchResult.list"
         :key="result.pack.id"
@@ -145,7 +154,7 @@
         :item_url="result.item_url"
         :title="result.title"
         :imageList="result.imageList"
-        :type="{ apiType: params.apiType, emoteType: 'emote' }"
+        :type="{ apiType: params.apiType, emoteType: result.emoteType }"
         @search-suit="handleSearchSuit"
       ></ImageGrid>
     </template>
@@ -160,6 +169,7 @@
       </CollectionGrid>
     </template>
 
+    <!-- searching tip -->
     <div
       v-if="loadingState == 'loading'"
       class="text-slate-400 text-center mt-16"
@@ -170,7 +180,7 @@
       v-else-if="loadingState == 'error'"
       class="text-lg text-red-600/60 text-center my-8"
     >
-      加载失败: {{ searchResult.errorMsg || "未知错误" }}
+      加载失败: {{ params.errorMsg || "未知错误" }}
     </div>
   </div>
 </template>
@@ -198,18 +208,20 @@ onMounted(() => {
 });
 
 const loadNext = async () => {
-  const { total, ps, pn } =
-    activeTab.value.type === "collection"
-      ? colSearchResult.value.page
-      : searchResult.value.page;
-  const hasNext = pn * ps < total;
+  try {
+    const { total, ps, pn } =
+      activeTab.value.type === "collection"
+        ? colSearchResult.value.page
+        : searchResult.value.page;
+    const hasNext = pn * ps < total;
 
-  // console.log(hasNext, pn, ps, total, loadingState.value);
+    // console.log(hasNext, pn, ps, total, loadingState.value);
 
-  if (hasNext && loadingState.value == "null") {
-    params.value.pn += 1;
-    await search(false);
-  }
+    if (hasNext && loadingState.value == "null") {
+      params.value.pn += 1;
+      await search(false);
+    }
+  } catch (e) {}
 };
 
 const tabBar = ref({
@@ -226,7 +238,7 @@ const tabBar = ref({
       id: 2,
       name: "直播间表情包",
       placeholder: "输入直播间 ID 或 URL",
-      type: "emote",
+      type: "liveroom",
     },
   ],
 });
@@ -246,6 +258,7 @@ const params = ref({
   // app | pc
   apiType: "app",
   cookie: localStorage.getItem("bili-emoji-downloader-cookie"),
+  errorMsg: "",
 });
 
 const configDialog = ref({
@@ -290,35 +303,30 @@ const loadingState = ref("null"); // null | loading | error
 
 const searchResult = ref({
   list: [
-    /*{ imageList: [], title: "", meta: {} }*/
+    /*{ imageList: [{id, text, url}], title: "", pack: {id, ...}, emoteType: 'emote' | 'liveroom', meta: {},  }*/
   ],
-  errorMsg: "",
   method: "",
 });
 
 const colSearchResult = ref({
   list: [],
   page: {},
-  errorMsg: "",
 });
 
-const switchTab = async (tab) => {
-  tabBar.value.currentTabId = tab.id;
+const switchTab = async (tab, prevTabId) => {
+  const id = (tabBar.value.currentTabId = tab.id);
   // 清空搜索结果
   searchResult.value.list = [];
   colSearchResult.value.list = [];
 
+  // 直播间表情包不自动搜索
+  if (id === 2 || prevTabId === 2) {
+    params.value.keyword = "";
+  }
+
   if (params.value.keyword) {
     await search();
-    // const { id } = activeTab.value;
-    //id=0: 自动搜索表情包; 1自动搜索收藏集
-    // if (id === 0) {
-    //   await searchEmoji();
-    // } else if (id === 1) {
-    //   await searchCollection();
-    // }
   }
-  // params.value.keyword = "";
 };
 
 const handleSearchFromTab = (kw, tabIdx) => {
@@ -359,20 +367,6 @@ const formatApiResult = (apiType, resp) => {
   });
 };
 
-const jumpToLiveEmoteAPI = (keyword) => {
-  const room_id =
-    keyword.match(/live\.bilibili\.com\/(\d+).+?/) || keyword.match(/^(\d+)$/);
-  if (!room_id || !room_id[1]) {
-    alert("无法查找房间 ID: " + keyword);
-    return;
-  }
-
-  const url =
-    "https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id=" +
-    room_id[1];
-  open(url, "_blank");
-};
-
 const searchEmoji = async () => {
   // 直播间表情包跳转到表情包接口
   if (activeTab.value.id === 1) {
@@ -404,6 +398,7 @@ const searchEmoji = async () => {
       title: item.text,
       item_url: item.meta.item_url,
       pack: { ...item },
+      emoteType: "emote",
     });
   }
 
@@ -436,6 +431,70 @@ const searchCollection = async () => {
   colSearchResult.value.page = { pn, ps, total };
 };
 
+const searchLiveroomEmoticons = async () => {
+  const { keyword } = params.value;
+
+  let room_id =
+    keyword.match(/live\.bilibili\.com\/(\d+).+?/) || keyword.match(/^(\d+)$/);
+
+  const jumpToLiveEmoteAPI = (room_id) => {
+    const url =
+      "https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id=" +
+      room_id;
+    open(url, "_blank");
+  };
+
+  if (!room_id || !room_id[1]) {
+    alert("无法查找房间 ID: " + room_id);
+    return;
+  }
+
+  room_id = room_id[1];
+  params.value.keyword = room_id;
+
+  try {
+    const resp = (
+      await API.getLiveEmoticonsByRoomId(room_id, {
+        "x-bili-cookie": params.value.cookie,
+      })
+    ).data;
+
+    const allPackList = resp.data;
+    // 搜索房间转专属表情
+    const pkgList = allPackList.filter((item) => item.pkg_type === 2);
+
+    if (!pkgList.length) {
+      alert(`该房间(${room_id})没有专属表情包`);
+    }
+
+    for (const pkg of pkgList) {
+      const icons = pkg.emoticons
+        .map((item) => ({
+          id: item.url,
+          text: item.emoji,
+          url: item.url,
+        }))
+        .flat();
+
+      searchResult.value.list.push({
+        imageList: [...icons],
+        title: pkg.pkg_name,
+        emoteType: "liveroom",
+        item_url:
+          pkg.pkg_type === 2 ? `https://live.bilibili.com/${room_id}` : `/#`,
+        pack: { ...pkg, id: pkg.pkg_id },
+      });
+    }
+  } catch (e) {
+    if (!e.toString().includes("服务器错误")) {
+      jumpToLiveEmoteAPI(room_id);
+      throw e;
+    } else {
+      alert("房间号不存在/服务器错误");
+    }
+  }
+};
+
 /**
  * @param reset 是否从第一页开始搜索
  */
@@ -456,6 +515,8 @@ const search = wrap(
       await searchEmoji();
     } else if (activeTab.value.type === "collection") {
       await searchCollection();
+    } else {
+      await searchLiveroomEmoticons();
     }
   },
   () => (loadingState.value = "loading"),
@@ -464,9 +525,9 @@ const search = wrap(
 
     if (state == "error") {
       loadingState.value = "error";
-      searchResult.value.errorMsg = error;
+      params.value.errorMsg = error;
     }
-   
+
     // 没有滚动条，自动加载下一页
     nextTick(() => {
       if (document.body.scrollHeight <= window.innerHeight) {

@@ -12,6 +12,12 @@ inst.interceptors.request.use((config) => {
 })
 
 inst.interceptors.response.use((config) => {
+  const { code, message } = config.data
+  
+  if (code !== 0) {
+    throw `${code}: ${message}`
+  }
+
   return config.data
 })
 

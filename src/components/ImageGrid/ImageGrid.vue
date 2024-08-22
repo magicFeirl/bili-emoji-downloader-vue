@@ -40,6 +40,7 @@
       <button
         title="搜索装扮/收藏集"
         class="ml-2 -mt-1"
+        v-if="type.emoteType === 'emote'"
         @click="handleSearchSuit"
       >
         <svg
@@ -137,12 +138,18 @@ import { vLazy } from "@/directives/lazy.js";
 import useJSZip from "@/utils/useJSZip.js";
 import useInfoHeader from "@/utils/useInfoHeader.js";
 
+const expandCardWhenSmallScreen = async () => {
+  // PC 接口只有 10 条数据，宽度过小时自动展开卡片
+  if (props.type.apiType === "pc" && window.innerWidth < 540) {
+    await expandCard();
+  }
+};
+
 onMounted(() => {
+  expandCardWhenSmallScreen();
+
   window.addEventListener("resize", async (e) => {
-    // PC 接口只有 10 条数据，宽度过小时自动展开卡片
-    if (props.type.apiType === "pc" && window.innerWidth < 540) {
-      await expandCard();
-    }
+    await expandCardWhenSmallScreen();
   });
 });
 
@@ -262,7 +269,7 @@ const expandCard = async () => {
   }
 
   const loadPackForPC = async () => {
-    if (props.type.apiType === "pc") {
+    if (props.type.apiType === "pc" && props.type.emoteType === "emote") {
       const data = await API.getEmojiDetailById(props.pack.id);
       imageList.value = data.data.package.emotes;
     }

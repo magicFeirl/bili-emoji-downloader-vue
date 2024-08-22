@@ -36,6 +36,7 @@ app.add_middleware(
 )
 
 
+# 后端有待优化：可以爬虫的请求放到一起，接口调用爬虫的方法，而不是分散请求
 def get_session(dep):
     cookie, _ = get_cookie(dep)
 
@@ -137,8 +138,9 @@ async def search_collection(keyword: str, query: CommonQuery):
 
 @ app.get('/collection-detail')
 async def collection_detail(act_id: int, lottery_id: int, query: CommonQuery):
-    url = 'https://api.bilibili.com/x/vas/dlc_act/lottery/detail'
-
+    # url = 'https://api.bilibili.com/x/vas/dlc_act/lottery/detail'
+    # mobile api:
+    url = 'https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail'
     return await basic_get(url, query,  params={
         'act_id': act_id,
         'lottery_id': lottery_id,
@@ -153,6 +155,12 @@ async def suit_detail(item_id: int, query: CommonQuery):
         'item_id': item_id,
         'part': 'suit',
     })
+
+
+@app.get('/live-emoticons')
+async def get_live_emotion(room_id: int | str, query: CommonQuery):
+    url = f'https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id={room_id}'
+    return await basic_get(url, query)
 
 
 @ app.get('/index')

@@ -5,7 +5,8 @@ const API = {
   'emoteDetail': '/detail',
   'collectionList': '/collection',
   'collectionDetail': '/collection-detail',
-  'suitDetail': '/suit-detail'
+  'suitDetail': '/suit-detail',
+  'liveRoomIcons': '/live-emoticons'
 }
 
 export async function searchEmojiByKeyword(params, headers = {}) {
@@ -21,6 +22,13 @@ export async function getEmojiDetailById(id) {
   })
 }
 
+
+export async function getLiveEmoticonsByRoomId(room_id, headers) {
+  return await http.get(API.liveRoomIcons, {
+    params: { room_id },
+    headers
+  })
+}
 
 export async function getCollectionList(params) {
   return await http.get(API.collectionList, {
