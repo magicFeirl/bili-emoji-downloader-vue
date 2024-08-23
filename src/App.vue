@@ -208,6 +208,11 @@ onMounted(() => {
 });
 
 const loadNext = async () => {
+  // 直播间没有加载下一页
+  if(activeTab.value.id === 3) {
+    return 
+  }
+
   try {
     const { total, ps, pn } =
       activeTab.value.type === "collection"
@@ -478,7 +483,7 @@ const searchLiveroomEmoticons = async () => {
 
       searchResult.value.list.push({
         imageList: [...icons],
-        title: pkg.pkg_name,
+        title: `live${room_id}_${pkg.pkg_name}`,
         emoteType: "liveroom",
         item_url:
           pkg.pkg_type === 2 ? `https://live.bilibili.com/${room_id}` : `/#`,

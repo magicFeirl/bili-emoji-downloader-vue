@@ -280,6 +280,22 @@ const loadCollection = async () => {
   // 装扮搜索接口传过来的
   state.value.headerImage = `${data.value.properties.image_cover}${IMAGE_BUCKET.header}`;
 
+  const clean_video_list = result.item_list
+    .filter((item) => item.card_info.video_list)
+    .map((item) => {
+      return {
+        ...item,
+        card_info: {
+          ...item.card_info,
+          video_list: null,
+          video_list_download: null,
+        },
+      };
+    });
+
+  // 有视频的卡片仍然添加封面图 
+  result.item_list.push(...clean_video_list);
+
   state.value.images = result.item_list.map(({ card_info }) => {
     const {
       card_name,
@@ -328,7 +344,7 @@ const loadSuit = async () => {
     .flat()
     .map((item) => {
       return Object.keys(item)
-        .filter((key) => key.endsWith("_portrait"))
+        .filter((key) => /image\d+_portrait/.test(key))
         .map((key, idx) => {
           const url = item[key];
           const ext = url.slice(url.lastIndexOf("."));
