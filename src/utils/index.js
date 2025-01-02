@@ -10,6 +10,7 @@ export function wrap(p, before, after) {
     }).catch((e) => {
       fin = false
       after('error', e)
+      throw e
     }).finally(() => {
       fin && after('finally')
     })

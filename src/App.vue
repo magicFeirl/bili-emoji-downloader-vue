@@ -351,10 +351,9 @@ const formatApiResult = (apiType, resp) => {
   const list =
     apiType === "app" ? resp.data.list || [] : resp.data.packages || [];
   const emoteK = apiType === "app" ? "emote" : "emotes";
-
-  return list.map((item) => {
+  // 某些无法查看的表情包没有 `emoteK` 字段，因此需要先排除这些数据
+  return list.filter(item => item[emoteK]).map((item) => {
     const maxLen = params.value.apiType === "app" ? 12 : 8;
-
     return {
       ...item,
       emote: item[emoteK].map((e) => {

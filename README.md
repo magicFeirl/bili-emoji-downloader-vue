@@ -7,6 +7,8 @@
 
 表情包搜索/收藏集搜索 & 下载
 ![example](./images/merged.jpg)
+![unzip](./images/unzip.png)
+
 
 ## 开发
 
@@ -20,6 +22,9 @@ npm run dev
 npm run build
 
 # python
+pip install -r requirements.txt
 cd api
+cp example.env .env
+# edit .env
 uvicorn index:app
 ```
